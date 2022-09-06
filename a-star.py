@@ -16,8 +16,8 @@ class City:
 # Returns the best route as a list and total distance as a float
 def optimal_route_finder(city_1, city_2):
     # Set a start and end point
-    # Store departing city in master_list since we can computer for f(n)
-    master_list = [city_1]
+    # Store departing city in master_f_sum_list since we can computer for f(n)
+    master_f_sum_list = [city_1]
     optimal_path_list = []
     path_info = {city_1: {'cost': 0, 'previous': None}}
     not_found = True
@@ -29,8 +29,8 @@ def optimal_route_finder(city_1, city_2):
         # Iterate through the master_f_sum list that contains the cities in which we have computed f(n)
         # straight_line_distance represents h(n)
         current_city = None
-        for next_city in master_list:
-            if current_city == None or path_info[next_city]['cost'] + straight_line_distance(next_city, city_2) < path_info[current_city]['cost'] + straight_line_distance(current_city, city_2):
+        for next_city in master_f_sum_list:
+            if current_city == None or f_sum(path_info, next_city, city_2) < f_sum(path_info, current_city, city_2):
                 current_city = next_city
         
         # Iterate through cities adjacent to current_city
@@ -40,12 +40,12 @@ def optimal_route_finder(city_1, city_2):
             # Check if adjacent city has not been visited yet by checking both lists
             # If true, append to master_f_sum list, set current_city as previous city of adjacent city
             # append current path cost of current_city to the distance of adjacent city to get g(n)
-            master_list = master_list + optimal_path_list
+            master_list = master_f_sum_list + optimal_path_list
             current_city_cost = path_info[current_city]['cost']
             current_city_total_cost = current_city_cost + adjacent_city_distance
             if adjacent_city_name not in master_list:
                 path_info[adjacent_city_name] = set_path_info(current_city, current_city_total_cost)
-                master_list.append(adjacent_city_name)
+                master_f_sum_list.append(adjacent_city_name)
                 
             else:
                 # If current path cost is greater than the path from the current city, then it means that the
@@ -54,7 +54,7 @@ def optimal_route_finder(city_1, city_2):
                     path_info[adjacent_city_name] = set_path_info(current_city, current_city_total_cost)
                     # Remove adjacent city from the optimal path list and place back on the master f sum list
                     if adjacent_city_name in optimal_path_list:
-                        master_list.append(adjacent_city_name)
+                        master_f_sum_list.append(adjacent_city_name)
                         optimal_path_list.remove(adjacent_city_name)
 
         # If the current city is the arriving city, then we have reached our destination
@@ -67,9 +67,9 @@ def optimal_route_finder(city_1, city_2):
                 final_optimal_path.append(current_city)
                 current_city = path_info[current_city]['previous']
                 if path_info[current_city]['previous'] == None:
+                    final_optimal_path.append(city_1)
                     break
             
-            final_optimal_path.append(city_1)
             final_optimal_path.reverse()
             final_optimal_path_string = ' - '.join(final_optimal_path)
             total_distance = "{:.2f}".format(path_info[city_2]['cost'])
@@ -77,11 +77,11 @@ def optimal_route_finder(city_1, city_2):
             print("From city: " + city_1)
             print("To city: " + city_2)
             print("Best Route: " + final_optimal_path_string)
-            print("Total Distance: " + total_distance + " mi")
-            return optimal_path_list
+            print("Total distance: " + total_distance + " mi")
+            return final_optimal_path
         optimal_path_list.append(current_city)
-        master_list.remove(current_city)
-    return final_optimal_path
+        master_f_sum_list.remove(current_city)
+    return optimal_path_list
                     
 
 # Function to compute the straight line distance using the Haversine formula
@@ -145,6 +145,11 @@ def set_path_info(previous, cost):
     info['previous'] = previous
     info['cost'] = cost
     return info
+
+# Function to computer for f(n)
+def f_sum(path_info, city, destination_city):
+    f_sum = path_info[city]['cost'] + straight_line_distance(city, destination_city)
+    return f_sum
 
 #print("From city:" + sys.argv[1])
 #print("To city: " + sys.argv[2])
