@@ -13,57 +13,85 @@ class City:
         #self.distance_to_other_cities = {}
 
 # Function to take departing city and arriving city (as input arguments)
-# city_1 is the departing city. city_2 is the arriving city
 # Returns the best route as a list and total distance as a float
 def optimal_route_finder(city_1, city_2):
     # Set a start and end point
-    departing_city = find_city_data(city_1)
-    arriving_city = find_city_data(city_2)
-    current_city = departing_city
-    lowest_current_cost = 0
-    current_cost = 0
-    lowest_cost = math.inf
+    # Store departing city in master_f_sum_list since we can computer for f(n)
+    master_f_sum_list = [city_1]
     optimal_path_list = []
-    test_list = []
+    path_info = {city_1: {'cost': 0, 'previous': None}}
     not_found = True
 
     # Starting at the departing_city, iterate through all the adjacent cities and compute for f(n)
     # Repeat this process until we reach our destination
     while not_found:
-        test_list.clear()
-        for adj_city in current_city.adjacent_cities:
-            if(adj_city[0] == arriving_city.name):
-                not_found = False
-                print(optimal_path_list)
-                print(current_cost)
-                break
-            f_sum = adj_city[1] + straight_line_distance(adj_city[0], arriving_city.name)
-            test_list.append(f_sum)
-            #print(f_sum)
-            if(f_sum < lowest_cost):
-                lowest_cost = f_sum
-                lowest_current_cost = adj_city[1]
-                lowest_cost_city = adj_city[0]
-        lowest_cost = math.inf
-        print(current_city.name)
-        print(test_list)
-        print(lowest_cost_city + " is the lowest cost city")
-        # Choose city with the lowest f(n) and store it in a list. Add g(n) value to a counter
-        # replace current_city with the lowest f(n)
-        optimal_path_list.append(lowest_cost_city)
-        current_cost += lowest_current_cost
-        current_city = find_city_data(lowest_cost_city)
+        # Set the current city whose adjacent cities path cost will be computed
+        # Iterate through the master_f_sum list that contains the cities in which we have computed f(n)
+        # straight_line_distance represents h(n)
+        current_city = None
+        for next_city in master_f_sum_list:
+            if current_city == None or f_sum(path_info, next_city, city_2) < f_sum(path_info, current_city, city_2):
+                current_city = next_city
+        
+        # Iterate through cities adjacent to current_city
+        for adj_city in find_city_data(current_city).adjacent_cities:
+            adjacent_city_name = adj_city[0]
+            adjacent_city_distance = adj_city[1]
+            # Check if adjacent city has not been visited yet by checking both lists
+            # If true, append to master_f_sum list, set current_city as previous city of adjacent city
+            # append current path cost of current_city to the distance of adjacent city to get g(n)
+            master_list = master_f_sum_list + optimal_path_list
+            current_city_cost = path_info[current_city]['cost']
+            current_city_total_cost = current_city_cost + adjacent_city_distance
+            if adjacent_city_name not in master_list:
+                path_info[adjacent_city_name] = set_path_info(current_city, current_city_total_cost)
+                master_f_sum_list.append(adjacent_city_name)
+                
+            else:
+                # If current path cost is greater than the path from the current city, then it means that the
+                # path set by the current city is cheaper
+                if path_info[adjacent_city_name]['cost'] > current_city_total_cost:
+                    path_info[adjacent_city_name] = set_path_info(current_city, current_city_total_cost)
+                    # Remove adjacent city from the optimal path list and place back on the master f sum list
+                    if adjacent_city_name in optimal_path_list:
+                        master_f_sum_list.append(adjacent_city_name)
+                        optimal_path_list.remove(adjacent_city_name)
 
+        # If the current city is the arriving city, then we have reached our destination
+        if current_city == city_2:
+            final_optimal_path = []
+            
+            # Go back through the path taken via the previous dictionary
+            # Stop when we reach the departing city which has previous set to None
+            while True:
+                final_optimal_path.append(current_city)
+                current_city = path_info[current_city]['previous']
+                if path_info[current_city]['previous'] == None:
+                    final_optimal_path.append(city_1)
+                    break
+            
+            final_optimal_path.reverse()
+            final_optimal_path_string = ' - '.join(final_optimal_path)
+            total_distance = "{:.2f}".format(path_info[city_2]['cost'])
+            #print(final_optimal_path_string)
+            print("From city: " + city_1)
+            print("To city: " + city_2)
+            print("Best Route: " + final_optimal_path_string)
+            print("Total Distance: " + total_distance + " mi")
+            return final_optimal_path
+        optimal_path_list.append(current_city)
+        master_f_sum_list.remove(current_city)
+    return optimal_path_list
                     
 
 # Function to compute the straight line distance using the Haversine formula
-# city_1 is the origin, city_2 is the destination
+# departing_city is the origin, arriving_city is the destination
 def straight_line_distance(city_1_name, city_2_name):
-    city_1 = find_city_data(city_1_name)
-    city_2 = find_city_data(city_2_name)
+    departing_city = find_city_data(city_1_name)
+    arriving_city = find_city_data(city_2_name)
     # Radius of the earth
     radius = 3958.8
-    distance = 2 * radius * math.asin(math.sqrt((math.sin((city_2.latitude - city_1.latitude) / 2) ** 2) + math.cos(city_1.latitude) * math.cos(city_2.latitude) * math.sin((city_2.longitude - city_1.longitude) / 2) ** 2))
+    distance = 2 * radius * math.asin(math.sqrt((math.sin((arriving_city.latitude - departing_city.latitude) / 2) ** 2) + math.cos(departing_city.latitude) * math.cos(arriving_city.latitude) * math.sin((arriving_city.longitude - departing_city.longitude) / 2) ** 2))
     return distance
 
 # Function to parse coordinates.txt to create the city object with their respective latitude and longitude
@@ -108,12 +136,26 @@ def compute_distance(destination):
         contents = city_data.readlines()
         for city_line in contents:
             city = re.search(r"([a-zA-z]+)", city_line)
-            print(city.group(1))
-            dict.update({city.group(1): straight_line_distance(find_city_data(city.group(1)), find_city_data(destination))})
+            dict.update({city.group(1): straight_line_distance(city.group(1), destination)})
     return dict
+
+# Function to set path name, cost from origin and previous city
+def set_path_info(previous, cost):
+    info = {}
+    info['previous'] = previous
+    info['cost'] = cost
+    return info
+
+# Function to computer for f(n)
+def f_sum(path_info, city, destination_city):
+    f_sum = path_info[city]['cost'] + straight_line_distance(city, destination_city)
+    return f_sum
 
 #print("From city:" + sys.argv[1])
 #print("To city: " + sys.argv[2])
 #print(compute_distance("LongBeach"))
 #print(straight_line_distance(find_city_data("LongBeach"),find_city_data("Eureka")))
-print(optimal_route_finder("SanFrancisco", "LongBeach"))
+#optimal_route_finder("SanFrancisco", "LongBeach")
+#print(sys.argv[1] + " is the departing city")
+#print(sys.argv[2] + " is the arriving city")
+optimal_route_finder(sys.argv[1], sys.argv[2])
